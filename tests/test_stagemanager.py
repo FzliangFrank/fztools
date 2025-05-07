@@ -5,7 +5,7 @@ from fztools.stagemanager import StageManager
 def test_reshaper():
     
     # initiate 
-    stage_manager = StageManager(label="Sum by Cabinet")
+    stage_manager = StageManager(name="Sum by Cabinet")
 
     @stage_manager.register("Chamber")
     def sum_chamber(df):
@@ -47,3 +47,29 @@ def test_reshaper():
         "qty": [3,7]
     }))
     assert stage_manager("_Ids").equals(pd.DataFrame({"id": range(1,5)})), "When no function is registered, it should return the input"
+
+def test_manager_chaining():
+    stage1 = StageManager()
+    stage2 = StageManager()
+
+    input_dict = {
+        "AplusOne": 1,
+        "BtoPowerTwo": 2,
+    }
+    
+    @stage1.register("AplusOne")
+    def plus_one(a):
+        return a + 1
+    
+    @stage1.register("BtoPowerTwo")
+    def power_two(b):
+        return b ** 2
+    
+    @stage2.register("CSumAB", ["AplusOne", "BtoPowerTwo"])
+    def sum_all(a, b):
+        return a + b
+    
+    stage1.input = input_dict
+    stage1 >> stage2
+    stage1.invoke_forward()
+    assert stage2.output == {'CSumAB': 6, 'AplusOne': 2, 'BtoPowerTwo': 4}

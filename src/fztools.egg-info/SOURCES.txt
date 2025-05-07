@@ -1,0 +1,10 @@
+README.md
+pyproject.toml
+src/fztools/__init__.py
+src/fztools/filegather.py
+src/fztools/stagemanager.py
+src/fztools.egg-info/PKG-INFO
+src/fztools.egg-info/SOURCES.txt
+src/fztools.egg-info/dependency_links.txt
+src/fztools.egg-info/top_level.txt
+tests/test_stagemanager.py
