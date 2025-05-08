@@ -1,6 +1,7 @@
 
+import pytest
 import pandas as pd
-from fztools.stagemanager import StageManager
+from fztools.stagemanager.stagemanager import StageManager
 
 def test_reshaper():
     

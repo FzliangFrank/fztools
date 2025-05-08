@@ -3,6 +3,16 @@ from typing import List
 import pandas as pd
 import warnings
 
+def contain_list_fullstop( tocheck:List
+                         , required:List
+                         , msg_prefix:str)->None:
+    '''
+    '''
+    missing_items = [item for item in required if item not in tocheck]
+    missing_items_str = ', '.join('"' + item + '"' for item in missing_items)
+    if len(missing_items) != 0:
+        raise ValueError(f"{msg_prefix}: {missing_items_str}")
+
 def validate_data(  datadict:dict
                   , validation_manifasto:dict
                   , msg = 'data')->dict:
@@ -69,6 +79,18 @@ def validate_data(  datadict:dict
                         msg = Fore.YELLOW + f"'{fileName}' contain {len(idx)} missing {col}!"
                         warnings.warn(UserWarning(msg))
             elif command == 'check':
+                for name, func in content.items():
+                    try:
+                        idx_ = func(data).index
+                        idx = data.index[~data.index.isin(idx_)] # not in the current index
+                    except Exception as e:
+                        print(Fore.RED + "Validation Function Error for %s, %s, %s:"%(fileName, command, name))
+                        raise e
+                    if len(idx) != 0:
+                        _remove_ += [(fileName, command, name, idx)]
+                        msg = Fore.YELLOW + f"'{fileName}' contain {len(idx)} not fit custom requirement '{name}'!"
+                        warnings.warn(UserWarning(msg))
+            elif command == 'check-against':
                 for name, func in content.items():
                     try:
 
@@ -139,3 +161,19 @@ def pretty_print__remove_(_remove_, msg = 'data'):
         )
     else:
         print(Fore.GREEN, f"Validating {msg} passed" + Fore.RESET)
+
+
+def show_example(data:dict)->dict:
+    '''
+    '''
+    if '_remove_' in data.keys():
+        _remove_ = data['_remove_']
+        
+        shows = {}
+        for index, row in _remove_.iterrows():
+            idx = row['idx']
+            data_name = row['filename']
+            shows[data_name] = data[data_name].loc[idx,:]
+        return shows
+    else:
+        return None

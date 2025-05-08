@@ -64,20 +64,37 @@ from collections import defaultdict
 import pandas as pd
 import geopandas as gpd
 from functools import wraps
+import igraph as ig
+import uuid
+from IPython.display import HTML
+from typing import List, Union
+import pandas as pd
+from functools import reduce
+
+
+from .mx_igraph import iGraphMixin
+from .mx_mermaid import MermaidMixin
+from ..datapack import DataPack
 
 class StageManager():
     '''
     method:
-        register: register a function to a new target output; 
-    properties:
-        input: dict of variables
-        output: dict of dataframe
-        funcs: dict of function
-        funcs_args: dict of list of string
-        pass_input: bool
-        name: string
-        next: StageManager
-        prev: StageManager
+        - register: register a function to a new target output; 
+        - invoke: invoke the function registered with that `OutputNs`and return the output
+        - __call__: same as invoke
+        - __rshift__: chain two stage managers together as in `stage_manager1 >> stage_manager2`
+        - invoke_forward: invoke all the functions registered within the stage manager
+        - invoke_backward: invoke all the functions registered within the stage manager in reverse order
+
+    property:
+        - input: dict of variables
+        - output: dict of dataframe that is the result of the calculation the the functions being called;
+        - funcs: dict of function
+        - funcs_args: dict of list of string
+        - pass_input: bool
+        - name: string
+        - next: StageManager
+        - prev: StageManager
     
     details:
         You can chain stage managers with `>>` operator.
@@ -90,9 +107,9 @@ class StageManager():
                  , "name"
                  , "next"
                  , "prev" ]
-    def __init__(self, input:dict={}, name="", pass_input=True):
-        self.input: Dict[str, List[Union[pd.DataFrame, gpd.GeoDataFrame]]] = input
-        self.output: Dict[str, List[Union[pd.DataFrame, gpd.GeoDataFrame]]] = {}
+    def __init__(self, input:dict={}, name="stage", pass_input=True):
+        self.input: Dict[str,Union[Any,DataPack]] = input
+        self.output: Dict[str, Union[Any,DataPack]] = {}
         self.funcs: Dict[str,Callable] = {}
         self.funcs_args: Dict[str,List[str]] = {}
         self.pass_input:bool = pass_input
@@ -111,6 +128,9 @@ class StageManager():
             return func
         return collect_func
     def invoke_all(self):
+        """
+        Execute all the functions registered within the stage manager
+        """
         input_keys = list(self.input.keys())
         # invoke all the functions
         for ns in self.funcs.keys():
@@ -148,11 +168,19 @@ class StageManager():
         return output
     def __repr__(self):
         return self.name
-    def __rshift__(self, other):
+    def __rshift__(self, other)->'StageChain':
+        """
+        Chain two stage managers together as in `stage_manager1 >> stage_manager2`
+        """
+        assert isinstance(other, self.__class__), "other must be a StageManager"
+        return StageChain([self, other])
+    def chain(self, other):
+        """
+        Chain two stage managers together
+        """
         assert isinstance(other, self.__class__), "other must be a StageManager"
         self.next = other
         other.prev = self
-        return other
     def invoke_forward(self):
         self.invoke_all()
         if hasattr(self, "next"):
@@ -165,4 +193,62 @@ class StageManager():
             self.prev.invoke_backward()
         else:
             self.invoke_forward()
+        return self
+    
+
+
+
+class StageChain(iGraphMixin, MermaidMixin):
+    """
+    StageChain is a collection of stage managers that are chained together using `>>` operator.
+
+    method:
+        - __rshift__: extend the chain by adding more stage managers together as in `stage_manager1 >> stage_manager2`
+        - invoke: invoke all the functions registered within the stage manager
+    """
+    _stages: List[StageManager] = []
+    def __init__(self, stages:List[StageManager]):
+        self.stages = stages
+    def __repr__(self):
+        chain_str = " >> ".join([stage.name + '(' + str(i+1) + ')' for i, stage in enumerate(self._stages)])
+        return f"StageChain({chain_str})"
+    
+    def __rshift__(self, other:Union[StageManager, 'StageChain'])->'StageChain':
+        """
+        Chain two stage managers together as in `stage_manager1 >> stage_manager2`
+        """
+        if isinstance(other, StageManager):
+            self._stages[-1] >> other
+            self._stages.append(other)
+        elif isinstance(other, StageChain):
+            self._stages[-1] >> other._stages[0]
+            self._stages.extend(other._stages)
+        return self
+    
+    @property
+    def stages(self):
+        return self._stages
+    
+    @stages.setter
+    def stages(self, stages:List[StageManager]):
+        reduce(lambda x, y: x.chain(y), stages)
+        self._stages = stages
+
+    
+    @property
+    def input(self):
+        """
+        Return the input of the first stage manager;
+        """
+        return self._stages[0].input
+    
+    @property
+    def output(self):
+        """
+        Return the output of calculation result;
+        """
+        return self._stages[-1].output
+    
+    def invoke(self):
+        self._stages[0].invoke_forward()
         return self

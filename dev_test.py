@@ -1,4 +1,7 @@
 from src.fztools import StageManager
+import igraph as ig
+import pandas as pd
+import uuid
 
 if __name__ == "__main__":
     stage1 = StageManager()
@@ -22,12 +25,26 @@ if __name__ == "__main__":
         return a + b
     
     stage1.input = input_dict
-    stage1 >> stage2
-    stage1.invoke_forward()
+    chain = stage1 >> stage2
+    chain.invoke()
     print(stage2.output)
 
     print(stage1.funcs)
     print(stage1.funcs_args)
+    print(chain.output)
+    print(chain)
 
-      
-      
+    # try create a dependency graph;
+
+    print(chain.igraph.vs[0])
+
+    print(chain.to_mermaid_code())
+
+    print(chain.node_edge[1])
+    print(chain.edge_table)
+
+
+
+    
+    
+    

@@ -1,0 +1,35 @@
+<!doctype html>
+        <html>
+       
+        <body>
+        <pre class="mermaid">
+            
+        flowchart LR
+            subgraph ee80c5f0-be3c-47f7-85dc-2edf44a06d1c [stage]
+	0("plus_one")
+	1("power_two")
+	5[/"AplusOne"/]
+	6[/"BtoPowerTwo"/]
+	end
+	subgraph 4c27b6db-7397-4a2d-8823-a4b41d88cc73 [stage]
+	2("sum_all")
+	7[/"CSumAB"/]
+	end
+	subgraph 21cc91c6-cc0f-4563-9eb3-8f6a5da6880b [input]
+	3[/"AplusOne"/]
+	4[/"BtoPowerTwo"/]
+	end
+            0 --> 5
+	1 --> 6
+	2 --> 7
+	3 --> 0
+	4 --> 1
+	5 --> 2
+	6 --> 2
+        
+        </pre>
+        </body>
+        <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        </script>
+        </html>
