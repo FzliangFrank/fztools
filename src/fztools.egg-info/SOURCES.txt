@@ -2,11 +2,14 @@ README.md
 pyproject.toml
 src/fztools/__init__.py
 src/fztools/datapack.py
-src/fztools/stagemanager.py
 src/fztools/validation.py
 src/fztools.egg-info/PKG-INFO
 src/fztools.egg-info/SOURCES.txt
 src/fztools.egg-info/dependency_links.txt
 src/fztools.egg-info/top_level.txt
 src/fztools/filescanner/filescanner.py
+src/fztools/stagemanager/__init__.py
+src/fztools/stagemanager/mx_igraph.py
+src/fztools/stagemanager/mx_mermaid.py
+src/fztools/stagemanager/stagemanager.py
 tests/test_stagemanager.py

@@ -24,7 +24,7 @@ import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.mi
 </html>
 """
 class MermaidMixin():
-    def to_mermaid_code(self
+    def to_mermaid_code(  self
                         , type: Literal['flowchart', 'classdiagram']='flowchart'
                         , **kwargs)->str:
         """
@@ -62,28 +62,33 @@ class MermaidMixin():
         # ninput_obj_ = '%s@{shape: circle, label: "%s"}'# node_id, node_label
         ninput_obj_ = '%s[/"%s"/]' # node_id, node_label
         edge_ = '%s --> %s'# source, target
-        subgraph_ = 'subgraph %s [%s]\n\t%s\n\tend'# subgraph_id, label,node_parse
+        edge_passby_ = '%s -..-> %s'# source, target
+        subgraph_ = 'subgraph %s ["%s"]\n\t%s\n\tend'# subgraph_id, label,node_parse
 
         mermaid_crd = {}
         mermaid_crd['subgraphs'] = {}
         mermaid_crd['edges'] = []
 
         g = self.igraph
-
+        # draw the node in shape
         for v in g.vs:
-            if v.indegree() == 0:
-                node_line = ninput_obj_%(v['id'], v['label'])
-            elif v['type'] == 'function':
-                node_line = npar_func_%(v['id'], v['element'].__name__)
-            elif v['type'] == 'object':
-                node_line = npar_obj_%(v['id'], v['label'])
+            node_line = npar_obj_%(v['id'], v['label'])
             stage_id = v['stage_id']
+
             if stage_id not in mermaid_crd['subgraphs'].keys():
                 mermaid_crd['subgraphs'][stage_id] = []
             mermaid_crd['subgraphs'][stage_id] += [node_line]
 
+        # draw the edge in shape
         for edge in g.es:
-            edge_line = edge_%(edge.source, edge.target)
+            head_stage_id = edge.source_vertex["stage_id"]
+            tail_stage_id = edge.target_vertex["stage_id"]
+
+            # adapt different styles for edge that are passby from previous stage
+            if  tail_stage_id - head_stage_id <= 1:
+                edge_line = edge_%(edge.source, edge.target)
+            else:
+                edge_line = edge_passby_%(edge.source, edge.target)
             mermaid_crd['edges'] += [edge_line]
         
     
@@ -92,9 +97,9 @@ class MermaidMixin():
         for stage_id, node_lines_list in mermaid_crd['subgraphs'].items():
             node_lines = "\n\t".join(node_lines_list)
             if stage_id < 0: 
-                label = "input"
+                label = "input" # the first stage is input 
             else:
-                label = self._stages[int(stage_id)].name
+                label = self._stages[int(stage_id)].name # anotying else is the name of the stage
             uid = uuid.uuid4()
             uuids += [uid]
             

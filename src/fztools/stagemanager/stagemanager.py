@@ -59,7 +59,12 @@ stage_manager("TownSum)
 """
 
 
-from typing import Any, List, Dict, Callable, Optional, Union
+from .mx_igraph import iGraphMixin
+from .mx_mermaid import MermaidMixin
+from .mx_async import AsyncMixin
+from ..datapack import DataPack
+
+from typing import Any, List, Dict, Callable, Optional, Union, Iterator
 from collections import defaultdict
 import pandas as pd
 import geopandas as gpd
@@ -71,10 +76,9 @@ from typing import List, Union
 import pandas as pd
 from functools import reduce
 
+from typing import overload
 
-from .mx_igraph import iGraphMixin
-from .mx_mermaid import MermaidMixin
-from ..datapack import DataPack
+
 
 class StageManager():
     '''
@@ -107,16 +111,21 @@ class StageManager():
                  , "name"
                  , "next"
                  , "prev" ]
-    def __init__(self, input:dict={}, name="stage", pass_input=True):
+    def __init__(self, input:dict=defaultdict(lambda: None), name="stage", pass_input=True):
         self.input: Dict[str,Union[Any,DataPack]] = input
-        self.output: Dict[str, Union[Any,DataPack]] = {}
-        self.funcs: Dict[str,Callable] = {}
-        self.funcs_args: Dict[str,List[str]] = {}
-        self.pass_input:bool = pass_input
+        self.output: Dict[str, Union[Any,DataPack]] = defaultdict(lambda: None)
+        self.funcs: Dict[str,Callable] = defaultdict(lambda: None)
+        self.funcs_args: Dict[str,List[str]] = defaultdict(list)
+        self.pass_input:bool = pass_input # an option to allow pass input to the next stage;
         self.name = name
+
+    def purne(self):
+        self.input = defaultdict(dict)
+        self.output = defaultdict(dict)
+        return self
     def register(self, OutputNs:str, InputNs:Optional[List[str]]=None):
         """
-        register a function to new target output; better used as decorator. 
+        Register a function to new target output; better used as decorator. 
         When this funcion only have `OutputNs`, in the next stage the same namesapce will be 
         produced
         """
@@ -141,7 +150,6 @@ class StageManager():
         if self.pass_input:
             for ns in input_keys:
                 self.output[ns] = self.input[ns]
-        
         return self
     def invoke(self, OutputNs:str
                  , **kwds: Any) -> Any:
@@ -149,6 +157,7 @@ class StageManager():
         invoke the function registered with that `OutputNs`and return the output
         - `OutputNs`: string, the namespace of the output variable
         """
+        # if output namespace is not registered then look for input namespace;
         if OutputNs not in self.funcs:
             output = self.input[OutputNs]
         else:
@@ -157,6 +166,9 @@ class StageManager():
             func_args = [self.input[ns] for ns in func_args_ns]
             output = func(*func_args, **kwds)
         self.output[OutputNs] = output
+        # pass this output to next stage
+        if hasattr(self, "next"):
+            self.next.input = self.output.copy()
         return output
     def __call__(self, OutputNs:str
                  , **kwds: Any) -> Any:
@@ -182,6 +194,10 @@ class StageManager():
         self.next = other
         other.prev = self
     def invoke_forward(self):
+        """
+        Invoke all the functions registered within the stage manager,
+        and invoke the next stage manager if it exists.
+        """
         self.invoke_all()
         if hasattr(self, "next"):
             self.next.input = self.output.copy()
@@ -189,16 +205,16 @@ class StageManager():
         else:
             return self
     def invoke_backward(self):
+        """
+        Simply find the first stage and then invoke forward
+        """
         if hasattr(self, "prev"):
             self.prev.invoke_backward()
         else:
             self.invoke_forward()
         return self
-    
 
-
-
-class StageChain(iGraphMixin, MermaidMixin):
+class StageChain(iGraphMixin, MermaidMixin, AsyncMixin):
     """
     StageChain is a collection of stage managers that are chained together using `>>` operator.
 
@@ -213,18 +229,33 @@ class StageChain(iGraphMixin, MermaidMixin):
         chain_str = " >> ".join([stage.name + '(' + str(i+1) + ')' for i, stage in enumerate(self._stages)])
         return f"StageChain({chain_str})"
     
+    def __getitem__(self, key:int)->StageManager:
+        return self._stages[key]
+    
+    def __len__(self)->int:
+        return len(self._stages)
+    
+    def __iter__(self)->Iterator[StageManager]:
+        return iter(self._stages)
+
+    @overload
+    def __rshift__(self, other:StageManager)->'StageChain':...
+    
+    @overload
+    def __rshift__(self, other:'StageChain')->'StageChain':...
+
     def __rshift__(self, other:Union[StageManager, 'StageChain'])->'StageChain':
-        """
-        Chain two stage managers together as in `stage_manager1 >> stage_manager2`
-        """
         if isinstance(other, StageManager):
             self._stages[-1] >> other
             self._stages.append(other)
         elif isinstance(other, StageChain):
             self._stages[-1] >> other._stages[0]
             self._stages.extend(other._stages)
+        else:
+            raise TypeError(f"other must be a StageManager or StageChain, not {type(other)}")
         return self
     
+
     @property
     def stages(self):
         return self._stages
@@ -233,7 +264,6 @@ class StageChain(iGraphMixin, MermaidMixin):
     def stages(self, stages:List[StageManager]):
         reduce(lambda x, y: x.chain(y), stages)
         self._stages = stages
-
     
     @property
     def input(self):
@@ -241,6 +271,13 @@ class StageChain(iGraphMixin, MermaidMixin):
         Return the input of the first stage manager;
         """
         return self._stages[0].input
+    
+    @input.setter
+    def input(self, input:dict):
+        """
+        Set the input of the first stage manager;
+        """
+        self._stages[0].input = input
     
     @property
     def output(self):
@@ -251,4 +288,9 @@ class StageChain(iGraphMixin, MermaidMixin):
     
     def invoke(self):
         self._stages[0].invoke_forward()
+        return self
+    
+    def purne(self):
+        for sg in self._stages:
+            sg.purne()
         return self

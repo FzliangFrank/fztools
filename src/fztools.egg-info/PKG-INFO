@@ -2,7 +2,7 @@ Metadata-Version: 2.4
 Name: fztools
 Version: 0.1.0
 Summary: A collection of tools for file management and stage management
-Author: Frank Liang
+Author-email: Frank Liang <fzliang@gmail.com>
 Project-URL: Homepage, https://github.com/yourusername/fztools
 Project-URL: Bug Tracker, https://github.com/yourusername/fztools/issues
 Classifier: Programming Language :: Python :: 3

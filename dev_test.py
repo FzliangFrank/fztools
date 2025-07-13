@@ -3,7 +3,7 @@ import igraph as ig
 import pandas as pd
 import uuid
 
-if __name__ == "__main__":
+def test_stagemanager():
     stage1 = StageManager()
     stage2 = StageManager()
 
@@ -42,9 +42,27 @@ if __name__ == "__main__":
 
     print(chain.node_edge[1])
     print(chain.edge_table)
+# importing the multiprocessing module
+import multiprocessing
 
+def print_cube(num):
+    """
+    function to print cube of given num
+    """
+    print("Cube: {}".format(num * num * num))
 
+def print_square(num):
+    """
+    function to print square of given num
+    """
+    print("Square: {}".format(num * num))
 
-    
+if __name__ == "__main__":
+    import asyncio
+    async def main():
+        await asyncio.sleep(2)
+        print('hello')
+
+    asyncio.run(main())
     
     

@@ -1,9 +1,30 @@
 
 import pytest
 import pandas as pd
-from fztools.stagemanager.stagemanager import StageManager
+from fztools.stagemanager.stagemanager import StageManager, StageChain
 
-def test_reshaper():
+
+
+def test_chaining_types():
+    stage1 = StageManager()
+    stage2 = StageManager()
+    stage3 = StageManager()
+
+    class A():
+        pass
+    a = A()
+
+    chain = stage1 >> stage2
+    assert isinstance(chain, StageChain), f"chain should be a StageChain, not {type(chain)}"
+    
+    new_chain = chain >> stage3
+    assert isinstance(new_chain, StageChain), f"new_chain should be a StageChain, not {type(new_chain)}"
+
+    with pytest.raises(TypeError):
+        chain >> a
+
+
+def test_evaulation():
     
     # initiate 
     stage_manager = StageManager(name="Sum by Cabinet")
@@ -71,6 +92,8 @@ def test_manager_chaining():
         return a + b
     
     stage1.input = input_dict
-    stage1 >> stage2
-    stage1.invoke_forward()
-    assert stage2.output == {'CSumAB': 6, 'AplusOne': 2, 'BtoPowerTwo': 4}
+    chain = stage1 >> stage2
+    chain.invoke()
+    assert chain.output == {'CSumAB': 6, 'AplusOne': 2, 'BtoPowerTwo': 4}
+
+    
