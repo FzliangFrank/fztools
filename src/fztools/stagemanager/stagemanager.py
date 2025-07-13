@@ -1,61 +1,6 @@
 
 """
-Reuse dataframe Namespace with `StageManager`
-
-## Reuse dataframe or anytable namespace to do data wrangling
-
-Basic Use Case:
-```
-# register a function to this input
-@stage_manager.register("Chamber")
-def sum_chamber(df):
-    # df is Chamber from input
-    return df.groupby("town")[["qty"]].sum().reset_index()
-
-# register this function to a new target output TownSum from input data Chamber Duct
-@stage_manager.register("TownSum", ["Chamber","Duct"])
-def sum_by_town(df1, df2):
-    df = pd.merge(df1, df2, on=["town","id"], how="outer")
-    return df.groupby("town")[["length", "qty"]].sum().reset_index()
-```
-
-## MPV
-
-```py
-# first initiate a stage manager 
-stage_manager = StageManager(label="Sum by Cabinet")
-
-@stage_manager.register("Chamber")
-def sum_chamber(df):
-    # df is Chamber from input
-    return df.groupby("town")[["qty"]].sum().reset_index()
-
-@stage_manager.register("Duct")
-def sum_duct(df):
-    # df is Duct from input
-    return df.groupby("town")[["length"]].sum().reset_index()
-
-
-@stage_manager.register("TownSum", ["Chamber","Duct"])
-def sum_by_town(df1, df2):
-    df = pd.merge(df1, df2, on=["town","id"], how="outer")
-    return df.groupby("town")[["length", "qty"]].sum().reset_index()
-
-
-# you have a directory of dataframe
-input_dict = {
-    "Chamber": pd.DataFrame({"id": range(1,5),"qty":[1,2,3,4],"town":["a", "a", "b", "b"]}),
-    "Duct": pd.DataFrame({"id": range(1,5),"length": [0.75,0.5,0.5,0.25],"town":["a", "a", "b", "b"]})
-}
-
-# now register this directory 
-stage_manager.input = input_dict
-
-# now you can call this same function to get the value you want
-stage_manager("Duct")
-stage_manager("Chamber)
-stage_manager("TownSum)
-```
+Reuse Namespace with `StageManager`
 """
 
 
@@ -82,6 +27,8 @@ from typing import overload
 
 class StageManager():
     '''
+    Basic evaluation unit of namespace management;
+
     method:
         - register: register a function to a new target output; 
         - invoke: invoke the function registered with that `OutputNs`and return the output
@@ -99,6 +46,44 @@ class StageManager():
         - name: string
         - next: StageManager
         - prev: StageManager
+    
+    
+    Example:
+        ```py
+        # first initiate a stage manager 
+        stage_manager = StageManager(label="Sum by Cabinet")
+
+        @stage_manager.register("Chamber")
+        def sum_chamber(df):
+            # df is Chamber from input
+            return df.groupby("town")[["qty"]].sum().reset_index()
+
+        @stage_manager.register("Duct")
+        def sum_duct(df):
+            # df is Duct from input
+            return df.groupby("town")[["length"]].sum().reset_index()
+
+
+        @stage_manager.register("TownSum", ["Chamber","Duct"])
+        def sum_by_town(df1, df2):
+            df = pd.merge(df1, df2, on=["town","id"], how="outer")
+            return df.groupby("town")[["length", "qty"]].sum().reset_index()
+
+
+        # you have a directory of dataframe
+        input_dict = {
+            "Chamber": pd.DataFrame({"id": range(1,5),"qty":[1,2,3,4],"town":["a", "a", "b", "b"]}),
+            "Duct": pd.DataFrame({"id": range(1,5),"length": [0.75,0.5,0.5,0.25],"town":["a", "a", "b", "b"]})
+        }
+
+        # now register this directory 
+        stage_manager.input = input_dict
+
+        # now you can call this same function to get the value you want
+        stage_manager("Duct")
+        stage_manager("Chamber)
+        stage_manager("TownSum)
+        ```
     
     details:
         You can chain stage managers with `>>` operator.
@@ -216,7 +201,59 @@ class StageManager():
 
 class StageChain(iGraphMixin, MermaidMixin, AsyncMixin):
     """
-    StageChain is a collection of stage managers that are chained together using `>>` operator.
+    Stagemanager joined together as using ">>" operator will form a chain of stage managers; They help to group functions into 
+    different stages; This object can be used to render into a mermaid diagram or invoke asynchronously.
+
+    Example:
+        ```python
+        from fztools import StageManager
+        import asyncio
+
+        stage1 = StageManager(name="stage1")
+        stage2 = StageManager(name="stage2")
+        stage3 = StageManager(name="stage3")
+
+        input_dict = {
+            "A": 1,
+            "B": 2,
+        }
+        #--------------------------------
+        @stage1.register("A")
+        def plus_one(a):
+            return a + 1
+
+        @stage1.register("B")
+        def power_two(b):
+            return b ** 2
+        @stage1.register("DistantNode", ["A", "B"])
+        def make_e(a, b):
+            return a + b + 3
+
+        #--------------------------------
+        @stage2.register("C", ["A", "B"])
+        def sum_all(a, b):
+            return a + b
+        @stage2.register("A", ["A", "B"])
+        def sum_all(a, b):
+            return a + b
+
+        #--------------------------------
+        @stage3.register("D", ["DistantNode","C"])
+        def sum_all(a, c):
+            return a + c
+
+        chain = stage1 >> stage2 >> stage3
+        chain.input = input_dict
+
+        # render into mermaid diagram
+        chain.to_mermaid()
+
+        # invoke the chain
+        chain.invoke()
+
+        # invoke the chain asynchronously
+        await chain.invoke_async()
+        ```
 
     method:
         - __rshift__: extend the chain by adding more stage managers together as in `stage_manager1 >> stage_manager2`
